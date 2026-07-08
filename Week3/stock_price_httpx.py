@@ -1,33 +1,42 @@
-# นักเรียนต้องเลือกใช้ asyncio.wait() พร้อมออปชัน return_when=asyncio.FIRST_COMPLETED เท่านั้น (หากใครใช้ gather หรือ wait_for จะไม่ตรงสเปกเงื่อนไขการแข่งส่งข้อมูล)
-# stock_price.py
-# Assignment 2: The Stock Price Race (Mock Version)
-# ต้องใช้ asyncio.wait() + return_when=asyncio.FIRST_COMPLETED เท่านั้น
+# stock_price_httpx.py (เวอร์ชันสำหรับแจกเป็นโจทย์หรือแนวทางให้นักเรียนเขียน)
+# stock_price_httpx.py
+# Assignment 3: Concurrency Racing on Live Network (FastAPI + HTTPX)
 
 import asyncio
+import httpx
 from time import ctime
 
-# จำลองการดึงราคาหุ้นจากเซิร์ฟเวอร์แต่ละสาขา โดยแต่ละสาขาจะมีความหน่วง (Latency) ไม่เท่ากัน
-async def fetch_stock_price(server_name, delay):
-    await asyncio.sleep(delay) 
-    return f"[{server_name}] Price: 150 USD"
+# ทดสอบบนเครื่องตัวเอง: 127.0.0.1 | เซิร์ฟเวอร์อาจารย์ในห้อง: 172.16.2.117
+BASE_URL = "http://127.0.0.1:8088"
+
+
+async def fetch_stock_price(server_name: str):
+    """เชื่อมต่อ Mock Server (ห้ามรับ delay - ความหน่วงเกิดจริงที่ฝั่ง API)"""
+    url = f"{BASE_URL}/price/{server_name}"
+
+    # ใช้ httpx.AsyncClient ผ่าน async with เพื่อไม่ Block Event Loop
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        data = response.json()
+        return f"[{data['server']}] Price: {data['price_usd']} USD"
 
 
 async def main():
-    # 1: สร้าง Task สำหรับดึงราคาหุ้นจากเซิร์ฟเวอร์แต่ละสาขา
+    # แปลงคูรูทีนทั้ง 3 สาขาเป็น Task ส่งเข้าคิวรันพร้อมกันใน Event Loop
     tasks = {
-        asyncio.create_task(fetch_stock_price("Alpha", 3.0)),  # ช้าสุด
-        asyncio.create_task(fetch_stock_price("Beta", 0.8)),   # เร็วสุด
-        asyncio.create_task(fetch_stock_price("Gamma", 1.5)),  # ปานกลาง
+        asyncio.create_task(fetch_stock_price("Alpha")),   # หน่วง 3.0s ที่ฝั่ง server
+        asyncio.create_task(fetch_stock_price("Beta")),    # หน่วง 0.8s (คาดหวังผู้ชนะ)
+        asyncio.create_task(fetch_stock_price("Gamma")),   # หน่วง 1.5s
     }
 
-    # 2: แสดงข้อความว่าเริ่มการแข่งขันดึงราคาหุ้น
+    # asyncio.wait + FIRST_COMPLETED -> ดีดหลุดทันทีที่เซิร์ฟเวอร์ตัวแรกตอบกลับ
     done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
 
-    # 3: แสดงผลลัพธ์ของ Task ที่เสร็จสมบูรณ์ก่อน
+    # แสดงผลลัพธ์ผู้ชนะการแข่งขัน
     for winner in done:
         print(f"{ctime()} Winner Result: {winner.result()}")
 
-    # 4: ยกเลิก Task ที่ยังไม่เสร็จสมบูรณ์
+    # [Anti-Memory Leak] วนลูปยกเลิกงาน pending ตัดสัญญาณ Network ที่ค้างอยู่
     print(f"{ctime()} Cleaning up {len(pending)} pending tasks...")
     for ongoing_task in pending:
         ongoing_task.cancel()
