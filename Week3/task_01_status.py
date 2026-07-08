@@ -9,11 +9,11 @@ async def short_job():
 async def main():
     task = asyncio.create_task(short_job())
     
-    # 
+    # สร้าง task
     print(f"{ctime()} Is task done? {task.done()}")          # 
     print(f"{ctime()} Is task canceled? {task.cancelled()}")  # 
     
-    await task # 
+    await task # สร้างในevent loop ค่อนทำงาน
     
     # Inspect status again after it finishes
     print(f"{ctime()} Is task done now? {task.done()}")      # 
