@@ -1,28 +1,37 @@
-# stock_price_httpx.py (เวอร์ชันสำหรับแจกเป็นโจทย์หรือแนวทางให้นักเรียนเขียน)
+# นักเรียนต้องเลือกใช้ asyncio.wait() พร้อมออปชัน return_when=asyncio.FIRST_COMPLETED เท่านั้น (หากใครใช้ gather หรือ wait_for จะไม่ตรงสเปกเงื่อนไขการแข่งส่งข้อมูล)
+# stock_price.py
+# Assignment 2: The Stock Price Race (Mock Version)
+# ต้องใช้ asyncio.wait() + return_when=asyncio.FIRST_COMPLETED เท่านั้น
+
 import asyncio
-import httpx  
 from time import ctime
 
-async def fetch_stock_price(server_name: str):
-    """
-    TODO: Assignment 3 - เขียนฟังก์ชันเชื่อมต่อ Mock Server ผ่านระบบเครือข่าย
-    1. กำหนดเป้าหมายไปที่พอร์ต 8088 ตามสเปกเซิร์ฟเวอร์ของอาจารย์
-    2. ใช้ httpx.AsyncClient() ดึงข้อมูลเพื่อไม่ให้เกิดการ Block สัญญาณ Event Loop
-    3. นำข้อมูล JSON (server และ price_usd) มาจัดฟอร์แมตแสดงผล
-    """
-    url = f"http://127.0.0.1:8088/price/{server_name}"
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        data = response.json()
-        return f"[{data['server']}] Price: {data['price_usd']} USD"
+# จำลองการดึงราคาหุ้นจากเซิร์ฟเวอร์แต่ละสาขา โดยแต่ละสาขาจะมีความหน่วง (Latency) ไม่เท่ากัน
+async def fetch_stock_price(server_name, delay):
+    await asyncio.sleep(delay) 
+    return f"[{server_name}] Price: 150 USD"
+
 
 async def main():
-    """
-    TODO: จัดการส่งกลุ่ม Tasks ทำ Concurrency Racing บนเซิร์ฟเวอร์ย่อย Alpha, Beta, Gamma
-    และปิดกั้นทรัพยากรตัวที่ค้างคา (pending) ทิ้งทันทีเมื่อมีผู้ชนะ
-    """
-    
+    # 1: สร้าง Task สำหรับดึงราคาหุ้นจากเซิร์ฟเวอร์แต่ละสาขา
+    tasks = {
+        asyncio.create_task(fetch_stock_price("Alpha", 3.0)),  # ช้าสุด
+        asyncio.create_task(fetch_stock_price("Beta", 0.8)),   # เร็วสุด
+        asyncio.create_task(fetch_stock_price("Gamma", 1.5)),  # ปานกลาง
+    }
+
+    # 2: แสดงข้อความว่าเริ่มการแข่งขันดึงราคาหุ้น
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+    # 3: แสดงผลลัพธ์ของ Task ที่เสร็จสมบูรณ์ก่อน
+    for winner in done:
+        print(f"{ctime()} Winner Result: {winner.result()}")
+
+    # 4: ยกเลิก Task ที่ยังไม่เสร็จสมบูรณ์
+    print(f"{ctime()} Cleaning up {len(pending)} pending tasks...")
+    for ongoing_task in pending:
+        ongoing_task.cancel()
+
 
 if __name__ == "__main__":
-    
+    asyncio.run(main())
