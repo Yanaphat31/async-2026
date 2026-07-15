@@ -37,4 +37,4 @@ async def cook_food(shop_name: str, order: OrderModel):
         "timestamp": ctime()
     }
 
-# How to run the server: uvicorn foodcourt_api:app --port 8088
+# How to run the server: uvicorn food,court_api:app --port 8088
