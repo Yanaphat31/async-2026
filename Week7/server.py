@@ -49,5 +49,3 @@ async def claim_coupon(req: ClaimRequest):
                 "status": "INVALID_STUDENT",
                 "message": "ไม่พบรายชื่อในระบบ"
             }
-
-        
